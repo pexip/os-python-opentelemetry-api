@@ -7,3 +7,6 @@ export PYBUILD_NAME=opentelemetry-api
 
 %:
 	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_test:
+	# The tests have dependencies on subpackages which we do not package

@@ -1,0 +1,19 @@
+Source: python-opentelemetry-api
+Section: unknown
+Priority: optional
+Maintainer: Pexip AS <packaging@pexip.com>
+Build-Depends: debhelper-compat (= 13), dh-python, python3-setuptools, python3-all
+Standards-Version: 4.5.1
+Homepage: <insert the upstream URL, if relevant>
+Rules-Requires-Root: no
+Vcs-Browser: https://github.com/pexip/os-python-opentelemetry-api
+Vcs-Git: https://github.com/pexip/os-python-opentelemetry-api.git
+
+Package: python3-opentelemetry-api
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description> (Python 3)
+ <insert long description, indented with spaces>
+ .
+ This package installs the library for Python 3.
+

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 # pylint: disable=too-many-ancestors
-# type: ignore
 
 """
 The OpenTelemetry metrics API  describes the classes used to generate
@@ -33,7 +32,7 @@ with the calling instrumentation name and the version of your package.
 
 The following code shows how to obtain a meter using the global :class:`.MeterProvider`::
 
-    from opentelemetry._metrics import get_meter
+    from opentelemetry.metrics import get_meter
 
     meter = get_meter("example-meter")
     counter = meter.create_counter("example-counter")
@@ -46,9 +45,11 @@ from abc import ABC, abstractmethod
 from logging import getLogger
 from os import environ
 from threading import Lock
-from typing import List, Optional, Set, cast
+from typing import List, Optional, Sequence, Set, Tuple, Union, cast
 
-from opentelemetry._metrics.instrument import (
+from opentelemetry.environment_variables import OTEL_PYTHON_METER_PROVIDER
+from opentelemetry.metrics._internal.instrument import (
+    CallbackT,
     Counter,
     Histogram,
     NoOpCounter,
@@ -63,19 +64,25 @@ from opentelemetry._metrics.instrument import (
     UpDownCounter,
     _ProxyCounter,
     _ProxyHistogram,
-    _ProxyInstrument,
     _ProxyObservableCounter,
     _ProxyObservableGauge,
     _ProxyObservableUpDownCounter,
     _ProxyUpDownCounter,
 )
-from opentelemetry.environment_variables import (
-    _OTEL_PYTHON_METER_PROVIDER as OTEL_PYTHON_METER_PROVIDER,
-)
 from opentelemetry.util._once import Once
 from opentelemetry.util._providers import _load_provider
 
 _logger = getLogger(__name__)
+
+
+_ProxyInstrumentT = Union[
+    _ProxyCounter,
+    _ProxyHistogram,
+    _ProxyObservableCounter,
+    _ProxyObservableGauge,
+    _ProxyObservableUpDownCounter,
+    _ProxyUpDownCounter,
+]
 
 
 class MeterProvider(ABC):
@@ -87,8 +94,8 @@ class MeterProvider(ABC):
     def get_meter(
         self,
         name: str,
-        version: str = None,
-        schema_url: str = None,
+        version: Optional[str] = None,
+        schema_url: Optional[str] = None,
     ) -> "Meter":
         """Returns a `Meter` for use by the given instrumentation library.
 
@@ -123,9 +130,9 @@ class NoOpMeterProvider(MeterProvider):
 
     def get_meter(
         self,
-        name,
-        version=None,
-        schema_url=None,
+        name: str,
+        version: Optional[str] = None,
+        schema_url: Optional[str] = None,
     ) -> "Meter":
         """Returns a NoOpMeter."""
         super().get_meter(name, version=version, schema_url=schema_url)
@@ -140,9 +147,9 @@ class _ProxyMeterProvider(MeterProvider):
 
     def get_meter(
         self,
-        name,
-        version=None,
-        schema_url=None,
+        name: str,
+        version: Optional[str] = None,
+        schema_url: Optional[str] = None,
     ) -> "Meter":
         with self._lock:
             if self._real_meter_provider is not None:
@@ -168,7 +175,12 @@ class Meter(ABC):
     used to produce measurements.
     """
 
-    def __init__(self, name: str, version: str = None, schema_url: str = None):
+    def __init__(
+        self,
+        name: str,
+        version: Optional[str] = None,
+        schema_url: Optional[str] = None,
+    ) -> None:
         super().__init__()
         self._name = name
         self._version = version
@@ -177,39 +189,43 @@ class Meter(ABC):
         self._instrument_ids_lock = Lock()
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         The name of the instrumenting module.
         """
         return self._name
 
     @property
-    def version(self):
+    def version(self) -> Optional[str]:
         """
         The version string of the instrumenting library.
         """
         return self._version
 
     @property
-    def schema_url(self):
+    def schema_url(self) -> Optional[str]:
         """
         Specifies the Schema URL of the emitted telemetry
         """
         return self._schema_url
 
-    def _check_instrument_id(
+    def _is_instrument_registered(
         self, name: str, type_: type, unit: str, description: str
-    ) -> bool:
+    ) -> Tuple[bool, str]:
         """
         Check if an instrument with the same name, type, unit and description
         has been registered already.
-        """
 
-        result = False
+        Returns a tuple. The first value is `True` if the instrument has been
+        registered already, `False` otherwise. The second value is the
+        instrument id.
+        """
 
         instrument_id = ",".join(
             [name.strip().lower(), type_.__name__, unit, description]
         )
+
+        result = False
 
         with self._instrument_ids_lock:
             if instrument_id in self._instrument_ids:
@@ -217,11 +233,14 @@ class Meter(ABC):
             else:
                 self._instrument_ids.add(instrument_id)
 
-        return result
+        return (result, instrument_id)
 
     @abstractmethod
     def create_counter(
-        self, name: str, unit: str = "", description: str = ""
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
     ) -> Counter:
         """Creates a `Counter` instrument
 
@@ -234,7 +253,10 @@ class Meter(ABC):
 
     @abstractmethod
     def create_up_down_counter(
-        self, name: str, unit: str = "", description: str = ""
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
     ) -> UpDownCounter:
         """Creates an `UpDownCounter` instrument
 
@@ -247,18 +269,22 @@ class Meter(ABC):
 
     @abstractmethod
     def create_observable_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableCounter:
         """Creates an `ObservableCounter` instrument
 
-        An observable counter observes a monotonically increasing count by
-        calling provided callbacks which returns multiple
-        :class:`~opentelemetry._metrics.observation.Observation`.
+        An observable counter observes a monotonically increasing count by calling provided
+        callbacks which accept a :class:`~opentelemetry.metrics.CallbackOptions` and return
+        multiple :class:`~opentelemetry.metrics.Observation`.
 
         For example, an observable counter could be used to report system CPU
         time periodically. Here is a basic implementation::
 
-            def cpu_time_callback() -> Iterable[Observation]:
+            def cpu_time_callback(options: CallbackOptions) -> Iterable[Observation]:
                 observations = []
                 with open("/proc/stat") as procstat:
                     procstat.readline()  # skip the first line
@@ -281,7 +307,7 @@ class Meter(ABC):
         To reduce memory usage, you can use generator callbacks instead of
         building the full list::
 
-            def cpu_time_callback() -> Iterable[Observation]:
+            def cpu_time_callback(options: CallbackOptions) -> Iterable[Observation]:
                 with open("/proc/stat") as procstat:
                     procstat.readline()  # skip the first line
                     for line in procstat:
@@ -291,11 +317,12 @@ class Meter(ABC):
                         yield Observation(int(states[1]) // 100, {"cpu": cpu, "state": "nice"})
                         # ... other states
 
-        Alternatively, you can pass a sequence of generators directly instead
-        of a sequence of callbacks, which each should return iterables of
-        :class:`~opentelemetry._metrics.observation.Observation`::
+        Alternatively, you can pass a sequence of generators directly instead of a sequence of
+        callbacks, which each should return iterables of :class:`~opentelemetry.metrics.Observation`::
 
             def cpu_time_callback(states_to_include: set[str]) -> Iterable[Iterable[Observation]]:
+                # accept options sent in from OpenTelemetry
+                options = yield
                 while True:
                     observations = []
                     with open("/proc/stat") as procstat:
@@ -308,7 +335,8 @@ class Meter(ABC):
                             if "nice" in states_to_include:
                                 observations.append(Observation(int(states[1]) // 100, {"cpu": cpu, "state": "nice"}))
                             # ... other states
-                    yield observations
+                    # yield the observations and receive the options for next iteration
+                    options = yield observations
 
             meter.create_observable_counter(
                 "system.cpu.time",
@@ -317,21 +345,33 @@ class Meter(ABC):
                 description="CPU time"
             )
 
+        The :class:`~opentelemetry.metrics.CallbackOptions` contain a timeout which the
+        callback should respect. For example if the callback does asynchronous work, like
+        making HTTP requests, it should respect the timeout::
+
+            def scrape_http_callback(options: CallbackOptions) -> Iterable[Observation]:
+                r = requests.get('http://scrapethis.com', timeout=options.timeout_millis / 10**3)
+                for value in r.json():
+                    yield Observation(value)
+
         Args:
             name: The name of the instrument to be created
             callbacks: A sequence of callbacks that return an iterable of
-                :class:`~opentelemetry._metrics.observation.Observation`.
-                Alternatively, can be a sequence of generators that each yields
-                iterables of
-                :class:`~opentelemetry._metrics.observation.Observation`.
+                :class:`~opentelemetry.metrics.Observation`. Alternatively, can be a sequence of generators that each
+                yields iterables of :class:`~opentelemetry.metrics.Observation`.
             unit: The unit for observations this instrument reports. For
                 example, ``By`` for bytes. UCUM units are recommended.
             description: A description for this instrument and what it measures.
         """
 
     @abstractmethod
-    def create_histogram(self, name, unit="", description="") -> Histogram:
-        """Creates a `opentelemetry._metrics.instrument.Histogram` instrument
+    def create_histogram(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Histogram:
+        """Creates a :class:`~opentelemetry.metrics.Histogram` instrument
 
         Args:
             name: The name of the instrument to be created
@@ -342,16 +382,19 @@ class Meter(ABC):
 
     @abstractmethod
     def create_observable_gauge(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableGauge:
         """Creates an `ObservableGauge` instrument
 
         Args:
             name: The name of the instrument to be created
             callbacks: A sequence of callbacks that return an iterable of
-                :class:`~opentelemetry._metrics.observation.Observation`.
-                Alternatively, can be a generator that yields iterables of
-                :class:`~opentelemetry._metrics.observation.Observation`.
+                :class:`~opentelemetry.metrics.Observation`. Alternatively, can be a generator that yields iterables
+                of :class:`~opentelemetry.metrics.Observation`.
             unit: The unit for observations this instrument reports. For
                 example, ``By`` for bytes. UCUM units are recommended.
             description: A description for this instrument and what it measures.
@@ -359,16 +402,19 @@ class Meter(ABC):
 
     @abstractmethod
     def create_observable_up_down_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableUpDownCounter:
         """Creates an `ObservableUpDownCounter` instrument
 
         Args:
             name: The name of the instrument to be created
             callbacks: A sequence of callbacks that return an iterable of
-                :class:`~opentelemetry._metrics.observation.Observation`.
-                Alternatively, can be a generator that yields iterables of
-                :class:`~opentelemetry._metrics.observation.Observation`.
+                :class:`~opentelemetry.metrics.Observation`. Alternatively, can be a generator that yields iterables
+                of :class:`~opentelemetry.metrics.Observation`.
             unit: The unit for observations this instrument reports. For
                 example, ``By`` for bytes. UCUM units are recommended.
             description: A description for this instrument and what it measures.
@@ -378,13 +424,13 @@ class Meter(ABC):
 class _ProxyMeter(Meter):
     def __init__(
         self,
-        name,
-        version=None,
-        schema_url=None,
-    ):
+        name: str,
+        version: Optional[str] = None,
+        schema_url: Optional[str] = None,
+    ) -> None:
         super().__init__(name, version=version, schema_url=schema_url)
         self._lock = Lock()
-        self._instruments: List[_ProxyInstrument] = []
+        self._instruments: List[_ProxyInstrumentT] = []
         self._real_meter: Optional[Meter] = None
 
     def on_set_meter_provider(self, meter_provider: MeterProvider) -> None:
@@ -404,7 +450,12 @@ class _ProxyMeter(Meter):
             for instrument in self._instruments:
                 instrument.on_meter_set(real_meter)
 
-    def create_counter(self, name, unit="", description="") -> Counter:
+    def create_counter(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Counter:
         with self._lock:
             if self._real_meter:
                 return self._real_meter.create_counter(name, unit, description)
@@ -413,7 +464,10 @@ class _ProxyMeter(Meter):
             return proxy
 
     def create_up_down_counter(
-        self, name, unit="", description=""
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
     ) -> UpDownCounter:
         with self._lock:
             if self._real_meter:
@@ -425,7 +479,11 @@ class _ProxyMeter(Meter):
             return proxy
 
     def create_observable_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableCounter:
         with self._lock:
             if self._real_meter:
@@ -438,7 +496,12 @@ class _ProxyMeter(Meter):
             self._instruments.append(proxy)
             return proxy
 
-    def create_histogram(self, name, unit="", description="") -> Histogram:
+    def create_histogram(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Histogram:
         with self._lock:
             if self._real_meter:
                 return self._real_meter.create_histogram(
@@ -449,7 +512,11 @@ class _ProxyMeter(Meter):
             return proxy
 
     def create_observable_gauge(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableGauge:
         with self._lock:
             if self._real_meter:
@@ -463,7 +530,11 @@ class _ProxyMeter(Meter):
             return proxy
 
     def create_observable_up_down_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableUpDownCounter:
         with self._lock:
             if self._real_meter:
@@ -486,10 +557,17 @@ class NoOpMeter(Meter):
     All operations are no-op.
     """
 
-    def create_counter(self, name, unit="", description="") -> Counter:
+    def create_counter(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Counter:
         """Returns a no-op Counter."""
         super().create_counter(name, unit=unit, description=description)
-        if self._check_instrument_id(name, NoOpCounter, unit, description):
+        if self._is_instrument_registered(
+            name, NoOpCounter, unit, description
+        )[0]:
             _logger.warning(
                 "An instrument with name %s, type %s, unit %s and "
                 "description %s has been created already.",
@@ -501,15 +579,18 @@ class NoOpMeter(Meter):
         return NoOpCounter(name, unit=unit, description=description)
 
     def create_up_down_counter(
-        self, name, unit="", description=""
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
     ) -> UpDownCounter:
         """Returns a no-op UpDownCounter."""
         super().create_up_down_counter(
             name, unit=unit, description=description
         )
-        if self._check_instrument_id(
+        if self._is_instrument_registered(
             name, NoOpUpDownCounter, unit, description
-        ):
+        )[0]:
             _logger.warning(
                 "An instrument with name %s, type %s, unit %s and "
                 "description %s has been created already.",
@@ -521,15 +602,19 @@ class NoOpMeter(Meter):
         return NoOpUpDownCounter(name, unit=unit, description=description)
 
     def create_observable_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableCounter:
         """Returns a no-op ObservableCounter."""
         super().create_observable_counter(
             name, callbacks, unit=unit, description=description
         )
-        if self._check_instrument_id(
+        if self._is_instrument_registered(
             name, NoOpObservableCounter, unit, description
-        ):
+        )[0]:
             _logger.warning(
                 "An instrument with name %s, type %s, unit %s and "
                 "description %s has been created already.",
@@ -545,10 +630,17 @@ class NoOpMeter(Meter):
             description=description,
         )
 
-    def create_histogram(self, name, unit="", description="") -> Histogram:
+    def create_histogram(
+        self,
+        name: str,
+        unit: str = "",
+        description: str = "",
+    ) -> Histogram:
         """Returns a no-op Histogram."""
         super().create_histogram(name, unit=unit, description=description)
-        if self._check_instrument_id(name, NoOpHistogram, unit, description):
+        if self._is_instrument_registered(
+            name, NoOpHistogram, unit, description
+        )[0]:
             _logger.warning(
                 "An instrument with name %s, type %s, unit %s and "
                 "description %s has been created already.",
@@ -560,15 +652,19 @@ class NoOpMeter(Meter):
         return NoOpHistogram(name, unit=unit, description=description)
 
     def create_observable_gauge(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableGauge:
         """Returns a no-op ObservableGauge."""
         super().create_observable_gauge(
             name, callbacks, unit=unit, description=description
         )
-        if self._check_instrument_id(
+        if self._is_instrument_registered(
             name, NoOpObservableGauge, unit, description
-        ):
+        )[0]:
             _logger.warning(
                 "An instrument with name %s, type %s, unit %s and "
                 "description %s has been created already.",
@@ -585,15 +681,19 @@ class NoOpMeter(Meter):
         )
 
     def create_observable_up_down_counter(
-        self, name, callbacks=None, unit="", description=""
+        self,
+        name: str,
+        callbacks: Optional[Sequence[CallbackT]] = None,
+        unit: str = "",
+        description: str = "",
     ) -> ObservableUpDownCounter:
         """Returns a no-op ObservableUpDownCounter."""
         super().create_observable_up_down_counter(
             name, callbacks, unit=unit, description=description
         )
-        if self._check_instrument_id(
+        if self._is_instrument_registered(
             name, NoOpObservableUpDownCounter, unit, description
-        ):
+        )[0]:
             _logger.warning(
                 "An instrument with name %s, type %s, unit %s and "
                 "description %s has been created already.",
@@ -623,7 +723,7 @@ def get_meter(
     """Returns a `Meter` for use by the given instrumentation library.
 
     This function is a convenience wrapper for
-    opentelemetry.trace.MeterProvider.get_meter.
+    `opentelemetry.metrics.MeterProvider.get_meter`.
 
     If meter_provider is omitted the current configured one is used.
     """
@@ -662,7 +762,7 @@ def get_meter_provider() -> MeterProvider:
         if OTEL_PYTHON_METER_PROVIDER not in environ.keys():
             return _PROXY_METER_PROVIDER
 
-        meter_provider: MeterProvider = _load_provider(
+        meter_provider: MeterProvider = _load_provider(  # type: ignore
             OTEL_PYTHON_METER_PROVIDER, "meter_provider"
         )
         _set_meter_provider(meter_provider, log=False)

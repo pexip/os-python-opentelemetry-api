@@ -1,0 +1,80 @@
+--- a/src/opentelemetry/propagators/composite.py
++++ b/src/opentelemetry/propagators/composite.py
+@@ -14,8 +14,6 @@
+ import logging
+ import typing
+ 
+-from deprecated import deprecated
+-
+ from opentelemetry.context.context import Context
+ from opentelemetry.propagators import textmap
+ 
+@@ -82,10 +80,3 @@
+                 composite_fields.add(field)
+ 
+         return composite_fields
+-
+-
+-@deprecated(version="1.2.0", reason="You should use CompositePropagator")  # type: ignore
+-class CompositeHTTPPropagator(CompositePropagator):
+-    """CompositeHTTPPropagator provides a mechanism for combining multiple
+-    propagators into a single one.
+-    """
+--- a/src/opentelemetry/trace/__init__.py
++++ b/src/opentelemetry/trace/__init__.py
+@@ -82,8 +82,6 @@
+ from logging import getLogger
+ from typing import Iterator, Optional, Sequence, cast
+ 
+-from deprecated import deprecated
+-
+ from opentelemetry import context as context_api
+ from opentelemetry.attributes import BoundedAttributes  # type: ignore
+ from opentelemetry.context.context import Context
+@@ -238,14 +236,6 @@
+         return NoOpTracer()
+ 
+ 
+-@deprecated(version="1.9.0", reason="You should use NoOpTracerProvider")  # type: ignore
+-class _DefaultTracerProvider(NoOpTracerProvider):
+-    """The default TracerProvider, used when no implementation is available.
+-
+-    All operations are no-op.
+-    """
+-
+-
+ class ProxyTracerProvider(TracerProvider):
+     def get_tracer(
+         self,
+@@ -477,14 +467,6 @@
+         yield INVALID_SPAN
+ 
+ 
+-@deprecated(version="1.9.0", reason="You should use NoOpTracer")  # type: ignore
+-class _DefaultTracer(NoOpTracer):
+-    """The default Tracer, used when no Tracer implementation is available.
+-
+-    All operations are no-op.
+-    """
+-
+-
+ _TRACER_PROVIDER_SET_ONCE = Once()
+ _TRACER_PROVIDER: Optional[TracerProvider] = None
+ _PROXY_TRACER_PROVIDER = ProxyTracerProvider()
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -29,7 +29,6 @@
+ zip_safe = False
+ include_package_data = True
+ install_requires = 
+-	Deprecated >= 1.2.6
+ 	aiocontextvars; python_version<'3.7'
+ 	setuptools >= 16.0
+ 
+--- a/src/opentelemetry_api.egg-info/requires.txt
++++ b/src/opentelemetry_api.egg-info/requires.txt
+@@ -1,4 +1,3 @@
+-Deprecated>=1.2.6
+ setuptools>=16.0
+ 
+ [:python_version < "3.7"]

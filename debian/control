@@ -13,7 +13,7 @@ Rules-Requires-Root: no
 
 Package: python3-opentelemetry-api
 Architecture: all
-Depends: ${python3:Depends}, ${misc:Depends}
+Depends: ${python3:Depends}, ${misc:Depends}, python3-importlib-metadata (>= 3.6.0)
 Description: OpenTelemetry Python API (Python 3)
  OpenTelemetry is a collection of tools, APIs, and SDKs. Use it to instrument,
  generate, collect, and export telemetry data (metrics, logs, and traces) to

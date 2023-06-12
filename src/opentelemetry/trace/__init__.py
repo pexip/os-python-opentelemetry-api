@@ -202,7 +202,7 @@ class TracerProvider(ABC):
         vs.  a functional tracer).
 
         Args:
-            instrumenting_module_name: The uniquely identifiable name for instrumentaion
+            instrumenting_module_name: The uniquely identifiable name for instrumentation
                 scope, such as instrumentation library, package, module or class name.
                 ``__name__`` may not be used as this can result in
                 different tracer names if the tracers are in different files.
@@ -216,7 +216,7 @@ class TracerProvider(ABC):
 
             instrumenting_library_version: Optional. The version string of the
                 instrumenting library.  Usually this should be the same as
-                ``pkg_resources.get_distribution(instrumenting_library_name).version``.
+                ``importlib.metadata.version(instrumenting_library_name)``.
 
             schema_url: Optional. Specifies the Schema URL of the emitted telemetry.
         """
@@ -318,7 +318,7 @@ class Tracer(ABC):
             record_exception: Whether to record any exceptions raised within the
                 context as error event on the span.
             set_status_on_exception: Only relevant if the returned span is used
-                in a with/context manager. Defines wether the span status will
+                in a with/context manager. Defines whether the span status will
                 be automatically set to ERROR when an uncaught exception is
                 raised in the span with block. The span status won't be set by
                 this mechanism if it was previously set manually.
@@ -352,7 +352,7 @@ class Tracer(ABC):
 
             with tracer.start_as_current_span("one") as parent:
                 parent.add_event("parent's event")
-                with trace.start_as_current_span("two") as child:
+                with tracer.start_as_current_span("two") as child:
                     child.add_event("child's event")
                     trace.get_current_span()  # returns child
                 trace.get_current_span()      # returns parent
@@ -373,7 +373,7 @@ class Tracer(ABC):
 
         This can also be used as a decorator::
 
-            @tracer.start_as_current_span("name"):
+            @tracer.start_as_current_span("name")
             def function():
                 ...
 
@@ -391,7 +391,7 @@ class Tracer(ABC):
             record_exception: Whether to record any exceptions raised within the
                 context as error event on the span.
             set_status_on_exception: Only relevant if the returned span is used
-                in a with/context manager. Defines wether the span status will
+                in a with/context manager. Defines whether the span status will
                 be automatically set to ERROR when an uncaught exception is
                 raised in the span with block. The span status won't be set by
                 this mechanism if it was previously set manually.
@@ -524,7 +524,7 @@ def _set_tracer_provider(tracer_provider: TracerProvider, log: bool) -> None:
 def set_tracer_provider(tracer_provider: TracerProvider) -> None:
     """Sets the current global :class:`~.TracerProvider` object.
 
-    This can only be done once, a warning will be logged if any furter attempt
+    This can only be done once, a warning will be logged if any further attempt
     is made.
     """
     _set_tracer_provider(tracer_provider, log=True)
@@ -562,7 +562,7 @@ def use_span(
         record_exception: Whether to record any exceptions raised within the
             context as error event on the span.
         set_status_on_exception: Only relevant if the returned span is used
-            in a with/context manager. Defines wether the span status will
+            in a with/context manager. Defines whether the span status will
             be automatically set to ERROR when an uncaught exception is
             raised in the span with block. The span status won't be set by
             this mechanism if it was previously set manually.

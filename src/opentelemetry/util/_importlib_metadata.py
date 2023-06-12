@@ -12,16 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
-import setuptools
-
-BASE_DIR = os.path.dirname(__file__)
-VERSION_FILENAME = os.path.join(BASE_DIR, "src", "opentelemetry", "version.py")
-PACKAGE_INFO = {}
-with open(VERSION_FILENAME, encoding="utf-8") as f:
-    exec(f.read(), PACKAGE_INFO)
-
-setuptools.setup(
-    version=PACKAGE_INFO["__version__"],
+# FIXME: Use importlib.metadata when support for 3.11 is dropped if the rest of
+# the supported versions at that time have the same API.
+from importlib_metadata import (  # type: ignore
+    EntryPoint,
+    EntryPoints,
+    entry_points,
+    version,
 )
+
+# The importlib-metadata library has introduced breaking changes before to its
+# API, this module is kept just to act as a layer between the
+# importlib-metadata library and our project if in any case it is necessary to
+# do so.
+
+__all__ = ["entry_points", "version", "EntryPoint", "EntryPoints"]

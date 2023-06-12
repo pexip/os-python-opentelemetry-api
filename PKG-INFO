@@ -1,27 +1,28 @@
 Metadata-Version: 2.1
 Name: opentelemetry-api
-Version: 1.12.0
+Version: 1.18.0
 Summary: OpenTelemetry Python API
-Home-page: https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api
-Author: OpenTelemetry Authors
-Author-email: cncf-opentelemetry-contributors@lists.cncf.io
-License: Apache-2.0
-Platform: any
+Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python/tree/main/opentelemetry-api
+Author-email: OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Classifier: Typing :: Typed
-Requires-Python: >=3.6
-Description-Content-Type: text/x-rst
+Requires-Python: >=3.7
+Requires-Dist: deprecated>=1.2.6
+Requires-Dist: importlib-metadata~=6.0.0
+Requires-Dist: setuptools>=16.0
 Provides-Extra: test
-License-File: LICENSE
+Description-Content-Type: text/x-rst
 
 OpenTelemetry Python API
 ============================================================================

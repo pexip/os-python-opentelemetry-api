@@ -119,7 +119,7 @@ class MeterProvider(ABC):
 
             version: Optional. The version string of the
                 instrumenting library.  Usually this should be the same as
-                ``pkg_resources.get_distribution(instrumenting_library_name).version``.
+                ``importlib.metadata.version(instrumenting_library_name)``.
 
             schema_url: Optional. Specifies the Schema URL of the emitted telemetry.
         """
@@ -749,7 +749,7 @@ def _set_meter_provider(meter_provider: MeterProvider, log: bool) -> None:
 def set_meter_provider(meter_provider: MeterProvider) -> None:
     """Sets the current global :class:`~.MeterProvider` object.
 
-    This can only be done once, a warning will be logged if any furter attempt
+    This can only be done once, a warning will be logged if any further attempt
     is made.
     """
     _set_meter_provider(meter_provider, log=True)

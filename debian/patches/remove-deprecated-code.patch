@@ -71,3 +71,26 @@
      "setuptools >= 16.0",
      # FIXME This should be able to be removed after 3.12 is released if there is a reliable API
      # in importlib.metadata.
+--- a/src/opentelemetry/util/re.py
++++ b/src/opentelemetry/util/re.py
+@@ -17,8 +17,6 @@
+ from typing import Dict, List, Mapping
+ from urllib.parse import unquote
+ 
+-from deprecated import deprecated
+-
+ _logger = getLogger(__name__)
+ 
+ # The following regexes reference this spec: https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/protocol/exporter.md#specifying-headers-via-environment-variables
+@@ -44,11 +42,6 @@
+ # pylint: disable=invalid-name
+ 
+ 
+-@deprecated(version="1.15.0", reason="You should use parse_env_headers")  # type: ignore
+-def parse_headers(s: str) -> Mapping[str, str]:
+-    return parse_env_headers(s)
+-
+-
+ def parse_env_headers(s: str) -> Mapping[str, str]:
+     """
+     Parse ``s``, which is a ``str`` instance containing HTTP headers encoded

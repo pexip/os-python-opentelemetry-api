@@ -1,0 +1,11 @@
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -28,7 +28,7 @@
+     "setuptools >= 16.0",
+     # FIXME This should be able to be removed after 3.12 is released if there is a reliable API
+     # in importlib.metadata.
+-    "importlib-metadata ~= 6.0.0",
++    "importlib-metadata >= 4.12.0",
+ ]
+ dynamic = [
+     "version",

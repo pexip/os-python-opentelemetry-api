@@ -1,6 +1,8 @@
 python-opentelemetry-api (1.32.1-0+pexip25u1) pexip-trixie; urgency=medium
 
   * New upstream version
+  * d/p/pexip-importlib-metadata: drop due to updated importlib-metadata
+  * d/p/remove-deprecated-code: drop as deprecated has now been packaged
 
  -- Huw Jones <huw@pexip.com>  Tue, 06 May 2025 15:48:17 +0100
 

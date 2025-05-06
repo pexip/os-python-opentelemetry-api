@@ -15,7 +15,6 @@
 # type: ignore
 
 from importlib import reload
-from logging import ERROR
 from os import environ
 from unittest import TestCase
 from unittest.mock import Mock, patch
@@ -33,7 +32,6 @@ class TestPropagators(TestCase):
     @patch("opentelemetry.propagators.composite.CompositePropagator")
     def test_default_composite_propagators(self, mock_compositehttppropagator):
         def test_propagators(propagators):
-
             propagators = {propagator.__class__ for propagator in propagators}
 
             self.assertEqual(len(propagators), 2)
@@ -57,7 +55,6 @@ class TestPropagators(TestCase):
     def test_non_default_propagators(
         self, mock_entry_points, mock_compositehttppropagator
     ):
-
         mock_entry_points.configure_mock(
             **{
                 "side_effect": [
@@ -108,17 +105,16 @@ class TestPropagators(TestCase):
         environ, {OTEL_PROPAGATORS: "tracecontext , unknown , baggage"}
     )
     def test_composite_propagators_error(self):
+        with self.assertRaises(ValueError) as cm:
+            # pylint: disable=import-outside-toplevel
+            import opentelemetry.propagate
 
-        # pylint: disable=import-outside-toplevel
-        import opentelemetry.propagate
+            reload(opentelemetry.propagate)
 
-        with self.assertRaises(Exception):
-            with self.assertLogs(level=ERROR) as err:
-                reload(opentelemetry.propagate)
-                self.assertIn(
-                    "Failed to load configured propagator `unknown`",
-                    err.output[0],
-                )
+        self.assertEqual(
+            str(cm.exception),
+            "Propagator unknown not found. It is either misspelled or not installed.",
+        )
 
 
 class TestTraceContextTextMapPropagator(TestCase):

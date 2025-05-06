@@ -109,8 +109,9 @@ def inject(
     """Uses the configured propagator to inject a Context into the carrier.
 
     Args:
-        carrier: An object that contains a representation of HTTP
-            headers. Should be paired with setter, which
+        carrier: the medium used by Propagators to read
+            values from and write values to.
+            Should be paired with setter, which
             should know how to set header values on the carrier.
         context: An optional Context to use. Defaults to current
             context if not set.
@@ -133,7 +134,6 @@ for propagator in environ_propagators.split(","):
     propagator = propagator.strip()
 
     try:
-
         propagators.append(  # type: ignore
             next(  # type: ignore
                 iter(  # type: ignore
@@ -144,11 +144,12 @@ for propagator in environ_propagators.split(","):
                 )
             ).load()()
         )
-
-    except Exception:  # pylint: disable=broad-except
-        logger.exception(
-            "Failed to load configured propagator: %s", propagator
+    except StopIteration:
+        raise ValueError(
+            f"Propagator {propagator} not found. It is either misspelled or not installed."
         )
+    except Exception:  # pylint: disable=broad-exception-caught
+        logger.exception("Failed to load propagator: %s", propagator)
         raise
 
 
